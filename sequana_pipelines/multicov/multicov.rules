@@ -143,6 +143,57 @@ onsuccess:
 
     shell("chmod -R g+w .")
 
+    from sequana.modules_report.summary import SequanaReport
+    from sequana import logger
+    logger.setLevel("INFO")
+
+    manager.teardown()
+
+    # General info table
+    from sequana_pipelines.multicov import __version__
+    df_general = pd.DataFrame({
+        "samples": len(manager.samples),
+        "sequana_multicov_version": __version__,
+    }, index=["summary"])
+    datatable = DataTable(df_general.T, "general", index=True)
+    datatable.datatable.datatable_options = {
+        "paging": "false",
+        "bFilter": "false",
+        "bInfo": "false",
+        "bSort": "false",
+    }
+    js_general = datatable.create_javascript_function()
+    html_general = datatable.create_datatable(style="width:30%")
+
+    # Per-sample links table
+    df_samples = pd.DataFrame({
+        "sample": list(manager.samples.keys()),
+        "link": [f"{s}/sequana_coverage/sequana_coverage.html" for s in manager.samples],
+    })
+    datatable = DataTable(df_samples, "samples", index=False)
+    datatable.datatable.datatable_options = {
+        "paging": "false",
+        "buttons": ["copy", "csv"],
+        "bSort": "true",
+        "dom": "BRSPfrti",
+    }
+    datatable.datatable.set_links_to_column("link", "sample")
+    js_samples = datatable.create_javascript_function()
+    html_samples = datatable.create_datatable()
+
+    contents = f"""
+        <h2>General information</h2>
+        {js_general}{html_general}
+        <br>
+        <h2>Coverage reports per sample</h2>
+        {js_samples}{html_samples}
+    """
+
+    data = manager.getmetadata()
+    SequanaReport(data, intro=contents)
+
+    shell("chmod -R g+w .")
+
 onerror:
     manager.onerror()
 
