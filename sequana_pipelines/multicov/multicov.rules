@@ -143,9 +143,6 @@ onsuccess:
 
     shell("chmod -R g+w .")
 
-
 onerror:
-    from sequana_pipetools.errors import PipeError
-    p = PipeError("multicov")
-    p.status()
+    manager.onerror()
 

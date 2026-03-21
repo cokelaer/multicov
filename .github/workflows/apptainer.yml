@@ -16,7 +16,7 @@ jobs:
     strategy:
       max-parallel: 5
       matrix:
-        python: [3.8, 3.9, '3.10']
+        python: ['3.11']
       fail-fast: false
 
 
@@ -52,6 +52,6 @@ jobs:
 
     - name: testing
       run: |
-        sequana_multicov --input-directory test/data/ --use-apptainer  --reference test/data/JB409847.fa && cd multicov && sh multicov.sh
+        sequana_multicov --input-directory test/data/ --apptainer-prefix ~/images  --reference-file test/data/JB409847.fa --input-pattern "*7.bed" && cd multicov && sh multicov.sh
 
 
