@@ -19,9 +19,9 @@ classifiers = [
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: BSD License",
         "Operating System :: POSIX :: Linux",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "Topic :: Scientific/Engineering :: Information Analysis",
@@ -33,11 +33,11 @@ packages = [
 
 
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
-sequana = ">=0.15.1"
-sequana_pipetools = ">=0.12.4"
-click-completion = "^0.5.2"
-sequana-wrappers = "^26.3.20"
+python = ">=3.9,<4.0"
+sequana = ">=0.17"
+sequana_pipetools = ">=1.4.0"
+click-completion = ">=0.5.2"
+sequana-wrappers = ">=26.3.21"
 
 
 [tool.poetry.scripts]

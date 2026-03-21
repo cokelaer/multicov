@@ -12,6 +12,8 @@ mapping:
     "input_pattern":
         type: str
         required: False
+    "apptainers":
+        type: any
 
     "sequana_coverage":
         type: map
