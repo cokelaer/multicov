@@ -3,9 +3,6 @@
 #
 #  Copyright (c) 2016-2021 - Sequana Development Team
 #
-#  File author(s):
-#      Thomas Cokelaer <thomas.cokelaer@pasteur.fr>
-#
 #  Distributed under the terms of the 3-clause BSD license.
 #  The full license is in the LICENSE file, distributed with this software.
 #
@@ -13,138 +10,81 @@
 #  documentation: http://sequana.readthedocs.io
 #
 ##############################################################################
-import shutil
-import sys
 import os
-import argparse
 import subprocess
 
-from sequana_pipetools.options import *
-from sequana_pipetools.options import before_pipeline
-from sequana_pipetools.misc import Colors
-from sequana_pipetools.info import sequana_epilog, sequana_prolog
-from sequana_pipetools import SequanaManager
+import rich_click as click
+import click_completion
 
-col = Colors()
+click_completion.init()
+
+from sequana_pipetools.options import *
+from sequana_pipetools import SequanaManager
 
 NAME = "multicov"
 
-
-class Options(argparse.ArgumentParser):
-    def __init__(self, prog=NAME, epilog=None):
-        usage = col.purple(sequana_prolog.format(**{"name": NAME}))
-        super(Options, self).__init__(
-            usage=usage,
-            prog=prog,
-            description="",
-            epilog=epilog,
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter
-        )
-
-        # add a new group of options to the parser
-        so = SlurmOptions()
-        so.add_options(self)
-
-        # add a snakemake group of options to the parser
-        so = SnakemakeOptions(working_directory=NAME)
-        so.add_options(self)
-
-        so = InputOptions(input_pattern="*.bed")
-        so.add_options(self)
-
-        so = GeneralOptions()
-        so.add_options(self)
-
-        pipeline_group = self.add_argument_group("pipeline")
-
-        pipeline_group.add_argument("-o", "--circular", action="store_true")
-        pipeline_group.add_argument("--double-threshold", default=0.5)
-        pipeline_group.add_argument("--genbank", default=None,
-            help="the genbank to annotate the events found")
-        pipeline_group.add_argument("--reference", default=None,
-            help="the genome reference used to plot GC content")
-        pipeline_group.add_argument("--high-threshold", default=4)
-        pipeline_group.add_argument("--low-threshold", default=-4)
-        pipeline_group.add_argument("--mixture-models", default=2, type=int,
-            help="""Number of models to use in the mixture model. (default 2).
-                 No need to change this value. Possibly, you may want to set 
-                 to 1 or 3 in some rate occasions. """)
-        pipeline_group.add_argument("--window", default=20000, type=int, 
-            help="""Length of the running median window. Keep to 20000 as much as
-            possible. This allows the detection of CNV up to 10kb. If longer
-            event are present, increase this window size.""")
-        pipeline_group.add_argument("--chunksize", default=5000000, type=int)
-        pipeline_group.add_argument("--binning", default=-1, type=int)
-        pipeline_group.add_argument("--cnv-clustering", default=-1)
-
-        self.add_argument("--run", default=False, action="store_true",
-            help="execute the pipeline directly")
-
-    def parse_args(self, *args):
-        args_list = list(*args)
-        if "--from-project" in args_list:
-            if len(args_list) > 2:
-                msg = (
-                    "WARNING [sequana]: With --from-project option, "
-                    + "pipeline and data-related options will be ignored."
-                )
-                print(col.error(msg))
-            for action in self._actions:
-                if action.required is True:
-                    action.required = False
-        options = super(Options, self).parse_args(*args)
-        return options
+help = init_click(
+    NAME,
+    groups={
+        "Pipeline Specific": [
+            "--annotation-file",
+            "--reference-file",
+            "--circular",
+            "--double-threshold",
+            "--high-threshold",
+            "--low-threshold",
+            "--mixture-models",
+            "--window",
+            "--chunksize",
+            "--binning",
+            "--cnv-clustering",
+        ],
+    },
+)
 
 
-def main(args=None):
-
-    if args is None:
-        args = sys.argv
-
-    # whatever needs to be called by all pipeline before the options parsing
-    before_pipeline(NAME)
-
-    # option parsing including common epilog
-    options = Options(NAME, epilog=sequana_epilog).parse_args(args[1:])
-
-    # the real stuff is here
+@click.command(context_settings=help)
+@include_options_from(ClickSnakemakeOptions, working_directory=NAME)
+@include_options_from(ClickSlurmOptions)
+@include_options_from(ClickInputOptions, input_pattern="*.bed", add_input_readtag=False)
+@include_options_from(ClickGeneralOptions)
+@click.option("--annotation-file", default=None, help="Genbank file to annotate detected events")
+@click.option("--reference-file", default=None, help="Genome reference FASTA file used to plot GC content")
+@click.option("--circular", is_flag=True, help="Set if the genome is circular")
+@click.option("--double-threshold", default=0.5, show_default=True, help="Double threshold for clustering")
+@click.option("--high-threshold", default=4.0, show_default=True, help="High threshold for ROI detection")
+@click.option("--low-threshold", default=-4.0, show_default=True, help="Low threshold for ROI detection")
+@click.option(
+    "--mixture-models",
+    default=2,
+    show_default=True,
+    help="Number of mixture models. Set to 1 or 3 in rare occasions",
+)
+@click.option(
+    "--window",
+    default=20000,
+    show_default=True,
+    help="Running median window size. Keep at 20000 to detect CNV up to 10kb",
+)
+@click.option("--chunksize", default=5000000, show_default=True, help="Chunk size for large genomes")
+@click.option("--binning", default=-1, show_default=True, help="Bin size for large genomes (-1 to disable)")
+@click.option(
+    "--cnv-clustering", default=-1, show_default=True, help="Merge events closer than this distance (-1 to disable)"
+)
+def main(**options):
     manager = SequanaManager(options, NAME)
+    options = manager.options
 
-    # create the beginning of the command and the working directory
     manager.setup()
-    from sequana import logger
 
-    logger.setLevel(options.level)
-    logger.name = "sequana_rnaseq"
-    logger.info(f"#Welcome to sequana_multicov pipeline.")
-
-    # fill the config file with input parameters
     if options.from_project is None:
         cfg = manager.config.config
 
         cfg.input_directory = os.path.abspath(options.input_directory)
         cfg.input_pattern = options.input_pattern
 
-
         cfg.sequana_coverage.circular = options.circular
         cfg.sequana_coverage.double_threshold = options.double_threshold
-
-        if options.genbank:
-            genbank = os.path.abspath(options.genbank)
-            cfg.sequana_coverage.genbank_file = genbank
-            if os.path.exists(genbank):
-                shutil.copy(genbank, manager.workdir)
-            else:
-                raise IOError("{} not found".format(options.genbank))
-
-        if options.reference:
-            reference = os.path.abspath(options.reference)
-            cfg.sequana_coverage.reference_file = reference
-            if os.path.exists(reference):
-                shutil.copy(reference, manager.workdir)
-            else:
-                raise IOError("{} not found".format(options.reference))
-
         cfg.sequana_coverage.high_threshold = options.high_threshold
         cfg.sequana_coverage.low_threshold = options.low_threshold
         cfg.sequana_coverage.mixture_models = options.mixture_models
@@ -153,15 +93,19 @@ def main(args=None):
         cfg.sequana_coverage.binning = options.binning
         cfg.sequana_coverage.cnv_clustering = options.cnv_clustering
 
+        if options.annotation_file:
+            annotation = os.path.abspath(options.annotation_file)
+            if not os.path.exists(annotation):
+                raise IOError(f"{options.annotation_file} not found")
+            cfg.sequana_coverage.annotation_file = annotation
 
+        if options.reference_file:
+            reference = os.path.abspath(options.reference_file)
+            if not os.path.exists(reference):
+                raise IOError(f"{options.reference_file} not found")
+            cfg.sequana_coverage.reference_file = reference
 
-
-    # finalise the command and save it; copy the snakemake. update the config
-    # file and save it.
     manager.teardown()
-
-    if options.run:
-        subprocess.Popen(["sh", "{}.sh".format(NAME)], cwd=options.workdir)
 
 
 if __name__ == "__main__":

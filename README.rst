@@ -1,41 +1,41 @@
-This is is the **coverage** pipeline from the `Sequana <https://sequana.readthedocs.org>`_ project
-
 
 .. image:: https://badge.fury.io/py/sequana-multicov.svg
      :target: https://pypi.python.org/pypi/sequana_multicov
+
+.. image:: https://github.com/sequana/multicov/actions/workflows/main.yml/badge.svg
+   :target: https://github.com/sequana/multicov/actions/workflows/main.yml
+
+.. image:: https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10-blue.svg
+    :target: https://pypi.python.org/pypi/sequana_multicov
+    :alt: Python 3.8 | 3.9 | 3.10
 
 .. image:: http://joss.theoj.org/papers/10.21105/joss.00352/status.svg
     :target: http://joss.theoj.org/papers/10.21105/joss.00352
     :alt: JOSS (journal of open source software) DOI
 
-.. image:: https://github.com/sequana/multicov/actions/workflows/main.yml/badge.svg
-   :target: https://github.com/sequana/multicov/actions/workflows    
+This is the **multicov** pipeline from the `Sequana <https://sequana.readthedocs.org>`_ project
 
-
-:Overview: Parallelised version of sequana_coverage for large eukaryotes genome.
-:Input: A set of BAM or BED files. BED file must have 3 or 4 columns. First column is
-    the chromosome/contig name, second column stored positions and third the
-    coverage. Fourth optional columns contains a filtered coverage (not used in
-    the analysis but shown in the HTML reports)
-:Output: a set of HTML reports for each chromosomes and a multiqc report
-:Status: production
-:Citation: 
+:Overview: Parallelised version of sequana_coverage for multi-sample genomic coverage analysis and CNV detection
+:Input: A set of BED files (3 or 4 columns: chromosome, position, coverage, optional filtered coverage)
+:Output: Per-sample HTML coverage reports, a MultiQC report, and a summary.html with links to all reports
+:Status: Production
+:Documentation: This README file and https://sequana.readthedocs.io
+:Citation:
     Dimitri Desvillechabrol, Christiane Bouchier, Sean Kennedy, Thomas Cokelaer
-    *Sequana coverage: detection and characterization of genomic variations 
+    *Sequana coverage: detection and characterization of genomic variations
     using running median and mixture models*
-    GigaScience, Volume 7, Issue 12, December 2018, giy110, 
+    GigaScience, Volume 7, Issue 12, December 2018, giy110,
     https://doi.org/10.1093/gigascience/giy110
 
-    and 
+    and
 
-    Cokelaer et al, (2017), ‘Sequana’: a Set of Snakemake NGS pipelines, Journal of Open Source Software, 2(16), 352, JOSS DOI https://doi:10.21105/joss.00352
+    Cokelaer et al, (2017), 'Sequana': a Set of Snakemake NGS pipelines, Journal of Open Source Software, 2(16), 352, JOSS DOI https://doi:10.21105/joss.00352
 
 
 Installation
 ~~~~~~~~~~~~
 
-
-sequana_multicov is based on Python3, just install the package as follows::
+If you already have all requirements, install the package using pip::
 
     pip install sequana_multicov --upgrade
 
@@ -43,109 +43,107 @@ sequana_multicov is based on Python3, just install the package as follows::
 Usage
 ~~~~~
 
-::
+Scan BED files in a directory and set up the pipeline (replace ``DATAPATH`` with your input directory)::
 
-    sequana_multicov --help
-    sequana_multicov --input-directory DATAPATH 
+    sequana_multicov --input-directory DATAPATH
 
-By default, this looks for BED file. WARNING. This are BED3 meaning a 3-columns
-tabulated file like this one::
+To provide a reference FASTA file for GC content plots::
 
-    chr1 1 10
-    chr1 2 11
+    sequana_multicov --input-directory DATAPATH --reference-file genome.fa
+
+To provide a GenBank annotation file for event annotation::
+
+    sequana_multicov --input-directory DATAPATH --annotation-file genome.gbk
+
+This creates a ``multicov/`` directory with the pipeline and configuration file. Execute the pipeline locally::
+
+    cd multicov
+    sh multicov.sh
+
+If you are familiar with Snakemake, you can also run the pipeline directly::
+
+    snakemake -s multicov.rules --cores 4 --stats stats.txt
+
+See ``.sequana/profile/config.yaml`` to tune Snakemake behaviour (cores, cluster settings, etc.).
+
+Usage with apptainer
+~~~~~~~~~~~~~~~~~~~~~
+
+With apptainer, initiate the working directory as follows::
+
+    sequana_multicov --input-directory DATAPATH --use-apptainer
+
+Images are downloaded in the working directory but you can store them in a shared location::
+
+    sequana_multicov --input-directory DATAPATH --use-apptainer --apptainer-prefix ~/.sequana/apptainers
+
+and then::
+
+    cd multicov
+    sh multicov.sh
+
+
+Input format
+~~~~~~~~~~~~~
+
+BED files must have 3 or 4 tab-separated columns::
+
+    chr1    1    10
+    chr1    2    11
     ...
-    chr1 N1 10
-    chr2 1 20
-    chr2 2 21
+    chr2    1    20
+    chr2    2    21
     ...
-    chr2 N2 20
 
-where the first column stored the chromosome name, the second is the position
-and the third is the coverage itself. See sequana_coverage documentation for
-details. If you have BAM files as input, we will do the conversion for you. In
-such case, use this option::
+where the first column is the chromosome/contig name, the second is the position (1-based, sorted), and the third is the coverage depth. An optional fourth column may contain a filtered coverage signal (shown in reports but not used in the analysis).
 
-    --input-pattern "*.bam"
+If you only have BAM files, convert them with::
 
-The sequana_coverage script creates a directory with the pipeline and 
-its configuration file. You will then need 
-to execute the pipeline::
+    samtools depth -aa input.bam > output.bed
 
-    cd coverage
-    sh coverage.sh  # for a local run
+For a specific chromosome only::
 
-This launch a snakemake pipeline. If you are familiar with snakemake, you can 
-retrieve the pipeline itself and its configuration files and then execute the pipeline yourself with specific parameters::
+    samtools depth -aa -r chr1 input.bam > chr1.bed
 
-    snakemake -s multicov.rules -c config.yaml --cores 4 --stats stats.txt
+For CRAM files, convert to BAM first::
 
-Or use `sequanix <https://sequana.readthedocs.io/en/master/sequanix.html>`_ interface as follows::
-
-    sequanix -w analysis -i . -p coverage
-
-Go to the second panel, in Input data and then in Input directory. There, you
-must modify the pattern (empty field by default meaning search for fastq files)
-and set the field to either::
-
-    *.bed
-
-or::
-
-    *.bam
-
-
-You are ready to go. Save the project and press Run. Once done, open the HTML report.
+    samtools view -@ 4 -T reference.fa -b -o out.bam in.cram
 
 
 Requirements
 ~~~~~~~~~~~~
 
-This pipelines requires the following executable(s):
+This pipeline requires the following executables:
 
-- sequana_coverage from **Sequana**, which should be installed automatically.
-- multiqc
+- **sequana_coverage** — from the `Sequana <https://sequana.readthedocs.io>`_ package (installed automatically)
+- **multiqc** — aggregated HTML report across samples
 
-.. .. image:: https://raw.githubusercontent.com/sequana/multicov/master/sequana_pipelines/multicov/dag.png
+Install all dependencies at once::
+
+    mamba env create -f environment.yml
 
 
 Details
 ~~~~~~~~~
 
-This pipeline runs **coverage** in parallel on the input BAM files (or BED file). 
+This pipeline runs **sequana_coverage** in parallel across all input BED files. For each sample it produces a standalone HTML report with:
 
+- coverage plots and running-median normalisation
+- ROI (region of interest) detection using z-score thresholds
+- CNV clustering
+- GC content overlay (when a reference FASTA is provided)
+- Event annotation (when a GenBank file is provided)
 
-The coverage tool takes as input a BAM or a BED file. The BED file must have 3
-or 4 columns as explained in the standalone application (sequana_coverage) 
-`documentation <http://sequana.readthedocs.io/en/master/applications.html?highlight=coverage#sequana-coverage>`_. 
-In short, the first column is the chromosome name, the second column is the
-position (sorted) and the third column is the coverage (an optional fourth
-column would contain a coverage signal, which could be high quality coverage for
-instance).
+On success, a ``summary.html`` is generated listing all samples with direct links to their individual reports, plus a MultiQC report aggregating key statistics across samples.
 
-If you have only BAM files, you can convert them using **bioconvert** tool or
-the command::
-
-    samtools depth -aa input.bam > output.bed
-
-If you have a CRAM file::
-
-    samtools view -@ 4 -T reference.fa -b -o out.bam  in.cram
-
-For very large BAM/BED files, we recommend to split the BED file by
-chromosomes. For instance for the chromosome  chr1, type::
-
-    # samtools index in.bam
-    samtools depth -aa input.bam -r chr1 in.bam > chr1.bed
-
-The standalone or Snakemake application can also take as input your BAM file and
-will convert it automatically into a BED file.
+For very large genomes the ``--binning`` and ``--chunksize`` options can be used to reduce memory usage.
 
 
 Rules and configuration details
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Here is the `latest documented configuration file <https://raw.githubusercontent.com/sequana/multicov/main/sequana_pipelines/multicov/config.yaml>`_
-to be used with the pipeline. Each rule used in the pipeline may have a section in the configuration file. 
+to be used with the pipeline. Each rule used in the pipeline may have a section in the configuration file.
 
 
 Changelog
@@ -154,10 +152,20 @@ Changelog
 ========= ====================================================================
 Version   Description
 ========= ====================================================================
+1.2.0     * convert packaging from setup.py to pyproject.toml (Poetry)
+          * add apptainer container for sequana_coverage rule
+          * add summary.html report with sample count and per-sample links
 1.1.0     * set apptainer containers and use wrappers
-1.0.0     * renamed into multicov.
+1.0.0     * renamed into multicov
           * update to use latest sequana_pipetools (v0.9.2)
 0.9.1     * rename genbank field into annotation, window into window_size
 0.9.0     * first version
 ========= ====================================================================
 
+
+Contribute & Code of Conduct
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To contribute to this project, please take a look at the
+`Contributing Guidelines <https://github.com/sequana/sequana/blob/main/CONTRIBUTING.rst>`_ first. Please note that this project is released with a
+`Code of Conduct <https://github.com/sequana/sequana/blob/main/CONDUCT.md>`_. By contributing to this project, you agree to abide by its terms.

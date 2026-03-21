@@ -34,10 +34,10 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.8,<4.0"
-sequana = ">=0.15.1"
-sequana_pipetools = ">=0.12.4"
-click-completion = "^0.5.2"
-sequana-wrappers = "^26.3.20"
+sequana = ">=0.20"
+sequana_pipetools = ">=1.5.0"
+click-completion = ">=0.5.2"
+sequana-wrappers = ">=26.3.21"
 
 
 [tool.poetry.scripts]
