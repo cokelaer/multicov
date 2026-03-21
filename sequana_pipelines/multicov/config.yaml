@@ -35,6 +35,10 @@ input_pattern:
 # :param cnv_clustering: further clustering to merge detected events whose
 #     distance is smaller than this parameter
 #
+apptainers:
+    sequana_coverage: https://zenodo.org/record/18257162/files/sequana_tools_26.1.14.img
+
+
 sequana_coverage:
     circular: True
     window_size: 20001

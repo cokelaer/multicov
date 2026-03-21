@@ -1,6 +1,5 @@
-import pkg_resources
 try:
-    version = pkg_resources.require("sequana_fastqc")[0].version
-except:
-    version = ">=0.8.0"
-
+    from importlib.metadata import version
+    __version__ = version("sequana_multicov")
+except Exception:
+    __version__ = ">=1.1.1"

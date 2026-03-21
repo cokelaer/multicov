@@ -14,10 +14,11 @@
 import sys
 import json
 
+import pandas as pd
+
+from sequana.utils.datatables_js import DataTable
 from sequana_pipetools import PipelineManager
 from sequana_pipetools import snaketools as sm
-
-sequana_wrapper_branch="main"
 
 configfile: "config.yaml"
 
@@ -60,8 +61,8 @@ rule multiqc:
        "multiqc/multiqc.log"
     resources:
         **config["multiqc"]["resources"]
-    wrapper:
-       f"{sequana_wrapper_branch}/wrappers/multiqc"
+    shell:
+        manager.get_shell("multiqc/run", "v1")
 
 
 rule sequana_coverage:
@@ -70,6 +71,8 @@ rule sequana_coverage:
         fasta=config['sequana_coverage']['reference_file']
     output:
         "{sample}/sequana_coverage/sequana_coverage.html"
+    log:
+        "{sample}/sequana_coverage/sequana_coverage.log"
     params:
         circular=config["sequana_coverage"]["circular"],
         window_size=config["sequana_coverage"]["window_size"],
@@ -79,12 +82,66 @@ rule sequana_coverage:
         high_threshold=config["sequana_coverage"]["high_threshold"],
         low_threshold=config["sequana_coverage"]["low_threshold"],
         mixture_models=config["sequana_coverage"]["mixture_models"],
-        gbk=config["sequana_coverage"]["annotation_file"]
-    wrapper:
-        f"{sequana_wrapper_branch}/wrappers/sequana_coverage"
+        annotation=config["sequana_coverage"]["annotation_file"],
+        output_directory=lambda wildcards: f"{wildcards.sample}/sequana_coverage",
+        options=""
+    container:
+        config['apptainers']['sequana_coverage']
+    shell:
+        manager.get_shell("sequana_coverage/run", "v1")
 
 onsuccess:
-    pass
+
+    from sequana.modules_report.summary import SequanaReport
+    from sequana import logger
+    logger.setLevel("INFO")
+
+    manager.teardown()
+
+    # General info table
+    from sequana_pipelines.multicov import __version__
+    df_general = pd.DataFrame({
+        "samples": len(manager.samples),
+        "sequana_multicov_version": __version__,
+    }, index=["summary"])
+    datatable = DataTable(df_general.T, "general", index=True)
+    datatable.datatable.datatable_options = {
+        "paging": "false",
+        "bFilter": "false",
+        "bInfo": "false",
+        "bSort": "false",
+    }
+    js_general = datatable.create_javascript_function()
+    html_general = datatable.create_datatable(style="width:30%")
+
+    # Per-sample links table
+    df_samples = pd.DataFrame({
+        "sample": list(manager.samples.keys()),
+        "link": [f"{s}/sequana_coverage/sequana_coverage.html" for s in manager.samples],
+    })
+    datatable = DataTable(df_samples, "samples", index=False)
+    datatable.datatable.datatable_options = {
+        "paging": "false",
+        "buttons": ["copy", "csv"],
+        "bSort": "true",
+        "dom": "BRSPfrti",
+    }
+    datatable.datatable.set_links_to_column("link", "sample")
+    js_samples = datatable.create_javascript_function()
+    html_samples = datatable.create_datatable()
+
+    contents = f"""
+        <h2>General information</h2>
+        {js_general}{html_general}
+        <br>
+        <h2>Coverage reports per sample</h2>
+        {js_samples}{html_samples}
+    """
+
+    data = manager.getmetadata()
+    SequanaReport(data, intro=contents)
+
+    shell("chmod -R g+w .")
 
 
 onerror:
