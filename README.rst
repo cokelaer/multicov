@@ -71,13 +71,9 @@ Usage with apptainer
 
 With apptainer, initiate the working directory as follows::
 
-    sequana_multicov --input-directory DATAPATH --use-apptainer
+    sequana_multicov --input-directory DATAPATH  --apptainer-prefix ~/.sequana/apptainers
 
-Images are downloaded in the working directory but you can store them in a shared location::
-
-    sequana_multicov --input-directory DATAPATH --use-apptainer --apptainer-prefix ~/.sequana/apptainers
-
-and then::
+Images are downloaded in the shared location. Then::
 
     cd multicov
     sh multicov.sh
